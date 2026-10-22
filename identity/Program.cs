@@ -33,3 +33,7 @@ app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
 
 app.Run();
+
+public partial class Program
+{
+}
