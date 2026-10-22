@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="va-identity/va-identity.csproj" />
+  <Project Path="va-identity.Tests/va-identity.Tests.csproj" />
 </Solution>
