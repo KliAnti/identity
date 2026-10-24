@@ -1,7 +1,7 @@
 using Serilog;
 using Serilog.Enrichers.Span;
-using va_identity.Grpc;
-using va_identity.Services;
+using Identity.Grpc;
+using Identity.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +15,7 @@ builder.Host.UseSerilog((_, loggerConfiguration) =>
 builder.Services.AddGrpc(options =>
     options.Interceptors.Add<TraceIdInterceptor>());
 builder.Services
-    .AddGrpcClient<Identity.IdentityClient>(options =>
+    .AddGrpcClient<global::Identity.Grpc.Identity.IdentityClient>(options =>
     {
         var address = builder.Configuration["Grpc:IdentityAddress"]
             ?? throw new InvalidOperationException("Configuration value 'Grpc:IdentityAddress' is required.");

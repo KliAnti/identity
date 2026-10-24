@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "va_identity.Grpc";
+option csharp_namespace = "Identity.Grpc";
 
 package identity;
 

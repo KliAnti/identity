@@ -3,7 +3,7 @@ using Grpc.Core;
 using Grpc.Core.Interceptors;
 using Serilog.Context;
 
-namespace va_identity.Services;
+namespace Identity.Services;
 
 /// <summary>
 /// Переносит идентификатор трассировки между gRPC-вызовами и добавляет его в контекст логирования.

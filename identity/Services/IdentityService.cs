@@ -1,13 +1,13 @@
 using Grpc.Core;
-using va_identity.Grpc;
+using Identity.Grpc;
 
-namespace va_identity.Services;
+namespace Identity.Services;
 
 /// <summary>
 /// Реализует методы gRPC-сервиса Identity.
 /// </summary>
 /// <param name="logger">Логгер для записи событий сервиса.</param>
-public sealed class IdentityService(ILogger<IdentityService> logger) : Identity.IdentityBase
+public sealed class IdentityService(ILogger<IdentityService> logger) : global::Identity.Grpc.Identity.IdentityBase
 {
     /// <summary>
     /// Обрабатывает запрос Ping, записывает полученное сообщение в лог и возвращает Pong.
