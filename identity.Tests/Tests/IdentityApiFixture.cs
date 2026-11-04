@@ -1,4 +1,5 @@
 using Grpc.Net.Client;
+using Identity.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -9,7 +10,7 @@ namespace Identity.Tests.Tests;
 /// <summary>
 /// Запускает Identity в памяти и предоставляет gRPC-клиент для API-тестов.
 /// </summary>
-public sealed class IdentityApiFixture : WebApplicationFactory<Program>
+public sealed class IdentityApiFixture : WebApplicationFactory<IdentityService>
 {
     public const string BaseAddress = "http://localhost";
 
