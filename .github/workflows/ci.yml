@@ -1,0 +1,50 @@
+name: Identity CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-migrations:
+    name: Build, test and prepare migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore identity.slnx
+
+      - name: Build
+        run: dotnet build identity.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test identity.slnx --configuration Release --no-build --no-restore --verbosity normal
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 10.0.14
+
+      - name: Generate idempotent migration script
+        env:
+          ConnectionStrings__Identity: Host=localhost;Database=identity;Username=identity;Password=ci-only
+        run: >
+          dotnet ef migrations script --idempotent
+          --project identity/identity.csproj
+          --startup-project identity/identity.csproj
+          --output identity-migrations.sql
+
+      - name: Upload migration script
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-migrations
+          path: identity-migrations.sql
+          if-no-files-found: error
