@@ -7,7 +7,7 @@ using IdentityGrpcClient = global::Identity.Grpc.Identity.IdentityClient;
 namespace Identity.Tests.Tests;
 
 /// <summary>
-/// Hosts Identity in memory and exposes its gRPC client for API tests.
+/// Запускает Identity в памяти и предоставляет gRPC-клиент для API-тестов.
 /// </summary>
 public sealed class IdentityApiFixture : WebApplicationFactory<Program>
 {
