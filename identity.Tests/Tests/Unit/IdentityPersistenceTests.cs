@@ -12,6 +12,9 @@ using Xunit;
 
 namespace Identity.Tests.Tests.Unit;
 
+/// <summary>
+/// Проверяет регистрацию и настройки компонентов постоянного хранилища Identity.
+/// </summary>
 public sealed class IdentityPersistenceTests
 {
     [Fact]

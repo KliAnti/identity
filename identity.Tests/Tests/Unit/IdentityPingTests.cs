@@ -7,6 +7,9 @@ using Xunit;
 
 namespace Identity.Tests.Tests.Unit;
 
+/// <summary>
+/// Проверяет обработку Ping и запись сообщения в лог.
+/// </summary>
 public sealed class IdentityPingTests
 {
     [Theory]

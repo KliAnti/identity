@@ -4,6 +4,9 @@ using Xunit;
 
 namespace Identity.Tests.Tests.Api;
 
+/// <summary>
+/// Проверяет gRPC API Identity на запрос Ping.
+/// </summary>
 [Collection(IdentityApiCollection.Name)]
 public sealed class IdentityPingApiTests(IdentityApiFixture fixture)
 {

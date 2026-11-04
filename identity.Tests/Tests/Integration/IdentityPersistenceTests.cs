@@ -10,7 +10,7 @@ using Xunit;
 namespace Identity.Tests.Tests.Integration;
 
 /// <summary>
-/// Проверяет создание схемы и сохранение данных Identity в SQLite.
+/// Проверяет создание схемы и сценарии хранения пользователей Identity в SQLite.
 /// </summary>
 public sealed class IdentityPersistenceTests
 {
