@@ -41,3 +41,7 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 app.MapHealthChecks("/health/ready");
 
 app.Run();
+
+public partial class Program
+{
+}
