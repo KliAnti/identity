@@ -12,10 +12,16 @@ namespace Identity.Tests.Tests;
 /// </summary>
 public sealed class IdentityApiFixture : WebApplicationFactory<IdentityService>
 {
+    /// <summary>
+    /// Базовый адрес тестового хоста Identity.
+    /// </summary>
     public const string BaseAddress = "http://localhost";
 
     private readonly GrpcChannel _channel;
 
+    /// <summary>
+    /// Создаёт тестовый хост Identity в памяти и инициализирует gRPC-клиент.
+    /// </summary>
     public IdentityApiFixture()
     {
         _channel = GrpcChannel.ForAddress(
@@ -24,6 +30,9 @@ public sealed class IdentityApiFixture : WebApplicationFactory<IdentityService>
         Client = new IdentityGrpcClient(_channel);
     }
 
+    /// <summary>
+    /// gRPC-клиент Identity, используемый в API-тестах.
+    /// </summary>
     public IdentityGrpcClient Client { get; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -44,8 +53,14 @@ public sealed class IdentityApiFixture : WebApplicationFactory<IdentityService>
     }
 }
 
+/// <summary>
+/// Определяет xUnit-коллекцию тестов Identity API с общей фикстурой.
+/// </summary>
 [CollectionDefinition(Name)]
 public sealed class IdentityApiCollection : ICollectionFixture<IdentityApiFixture>
 {
+    /// <summary>
+    /// Имя xUnit-коллекции для тестов Identity API.
+    /// </summary>
     public const string Name = "Identity API";
 }
