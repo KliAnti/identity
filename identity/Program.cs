@@ -34,10 +34,7 @@ var app = builder.Build();
 
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = _ => false
-});
-app.MapHealthChecks("/health/ready");
+builder.Services.AddHealthChecks()
+    .AddCheck("identity", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 
 app.Run();
