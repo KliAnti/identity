@@ -22,4 +22,17 @@ public sealed class IdentityPingApiTests(IdentityApiFixture fixture)
         // Assert
         response.Message.Should().Be("Pong");
     }
+
+    [Fact]
+    public async Task Ping_WhenMessageIsNotPing_ReturnsPong()
+    {
+        // Arrange
+        var request = new PingRequest { Message = "32132132132132" };
+
+        // Act
+        var response = await fixture.Client.PingAsync(request);
+
+        // Assert
+        response.Message.Should().Be( "Pong" );
+    }
 }
