@@ -17,6 +17,8 @@ public sealed class IdentityService(ILogger<IdentityService> logger) : global::I
     /// <returns>Ответ PongResponse с сообщением «Pong».</returns>
     public override Task<PongResponse> Ping(PingRequest request, ServerCallContext context)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         logger.LogInformation("Received ping: {Message}", request.Message);
 
         return Task.FromResult(new PongResponse { Message = "Pong" });
