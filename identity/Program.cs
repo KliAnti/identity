@@ -17,24 +17,15 @@ builder.Host.UseSerilog((_, loggerConfiguration) =>
 builder.Services.AddGrpc(options =>
     options.Interceptors.Add<TraceIdInterceptor>());
 builder.Services.AddIdentityPersistence(builder.Configuration);
-builder.Services
-    .AddGrpcClient<global::Identity.Grpc.Identity.IdentityClient>(options =>
-    {
-        var address = builder.Configuration["Grpc:IdentityAddress"]
-            ?? throw new InvalidOperationException("Configuration value 'Grpc:IdentityAddress' is required.");
-        options.Address = new Uri(address);
-    })
-    .AddInterceptor<TraceIdInterceptor>();
 builder.Services.AddGrpcHealthChecks();
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<IdentityDbContext>("postgresql");
+    .AddDbContextCheck<IdentityDbContext>("postgresql")
+    .AddCheck("identity", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 builder.Services.AddScoped<IdentityService>();
 
 var app = builder.Build();
 
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
-builder.Services.AddHealthChecks()
-    .AddCheck("identity", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 
 app.Run();
