@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="identity/identity.csproj" />
+  <Project Path="identity.Tests/identity.Tests.csproj" />
 </Solution>

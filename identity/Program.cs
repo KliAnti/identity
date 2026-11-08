@@ -1,7 +1,9 @@
 using Serilog;
 using Serilog.Enrichers.Span;
 using Identity.Grpc;
+using Identity.Infrastructure.Persistence;
 using Identity.Services;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,16 +16,10 @@ builder.Host.UseSerilog((_, loggerConfiguration) =>
 
 builder.Services.AddGrpc(options =>
     options.Interceptors.Add<TraceIdInterceptor>());
-builder.Services
-    .AddGrpcClient<global::Identity.Grpc.Identity.IdentityClient>(options =>
-    {
-        var address = builder.Configuration["Grpc:IdentityAddress"]
-            ?? throw new InvalidOperationException("Configuration value 'Grpc:IdentityAddress' is required.");
-        options.Address = new Uri(address);
-    })
-    .AddInterceptor<TraceIdInterceptor>();
+builder.Services.AddIdentityPersistence(builder.Configuration);
 builder.Services.AddGrpcHealthChecks();
 builder.Services.AddHealthChecks()
+    .AddDbContextCheck<IdentityDbContext>("postgresql")
     .AddCheck("identity", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 builder.Services.AddScoped<IdentityService>();
 
