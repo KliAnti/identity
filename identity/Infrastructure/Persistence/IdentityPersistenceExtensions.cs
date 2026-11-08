@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Identity.Infrastructure.Persistence.Stores;
+using Identity.Infrastructure.Persistence.Models.Role;
+using Identity.Infrastructure.Persistence.Models.User;
+using Identity.Infrastructure;
 
 namespace Identity.Infrastructure.Persistence;
 
@@ -9,7 +13,7 @@ namespace Identity.Infrastructure.Persistence;
 public static class IdentityPersistenceExtensions
 {
     /// <summary>
-    /// Регистрирует PostgreSQL-контекст и хранилища ASP.NET Core Identity.
+    /// Регистрирует PostgreSQL-контекст и хранилища Identity для пользовательской схемы.
     /// </summary>
     /// <param name="services">Коллекция сервисов приложения.</param>
     /// <param name="configuration">Конфигурация приложения.</param>
@@ -26,9 +30,11 @@ public static class IdentityPersistenceExtensions
                 "Не задана строка подключения 'ConnectionStrings:Identity'.");
 
         services.AddDbContext<IdentityDbContext>(options => options.UseNpgsql(connectionString));
-        services.AddIdentityCore<IdentityUserEntity>(options => options.User.RequireUniqueEmail = true)
-            .AddRoles<IdentityRole>()
-            .AddEntityFrameworkStores<IdentityDbContext>();
+        services.AddIdentityCore<UserModel>(options => options.User.RequireUniqueEmail = true)
+            .AddRoles<RoleModel>()
+            .AddUserStore<IdentityUserStore>()
+            .AddRoleStore<IdentityRoleStore>();
+        services.AddScoped<IPasswordHasher<UserModel>, SeparateSaltPasswordHasher>();
 
         return services;
     }
