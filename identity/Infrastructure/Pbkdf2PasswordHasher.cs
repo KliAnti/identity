@@ -8,9 +8,9 @@ namespace Identity.Infrastructure;
 using Identity.Infrastructure.Persistence.Models.User;
 
 /// <summary>
-/// Вычисляет и проверяет хеши паролей с солью, хранящейся отдельно.
+/// Вычисляет и проверяет хеши паролей с солью.
 /// </summary>
-public sealed class SeparateSaltPasswordHasher : IPasswordHasher<UserModel>
+public sealed class Pbkdf2PasswordHasher : IPasswordHasher<UserModel>
 {
     private const int Iterations = 600_000;
     private const int SaltSize = 16;

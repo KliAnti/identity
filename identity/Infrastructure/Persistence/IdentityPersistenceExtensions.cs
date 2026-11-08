@@ -34,7 +34,7 @@ public static class IdentityPersistenceExtensions
             .AddRoles<RoleModel>()
             .AddUserStore<IdentityUserStore>()
             .AddRoleStore<IdentityRoleStore>();
-        services.AddScoped<IPasswordHasher<UserModel>, SeparateSaltPasswordHasher>();
+        services.AddScoped<IPasswordHasher<UserModel>, Pbkdf2PasswordHasher>();
 
         return services;
     }
