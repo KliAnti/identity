@@ -26,12 +26,7 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher<UserModel>
         ArgumentNullException.ThrowIfNull(password);
 
         var salt = RandomNumberGenerator.GetBytes(SaltSize);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(
-            password,
-            salt,
-            Iterations,
-            HashAlgorithmName.SHA256,
-            HashSize);
+        var hash = Rfc2898DeriveBytes.Pbkdf2( password, salt, Iterations, HashAlgorithmName.SHA256, HashSize);
 
         user.PasswordSalt = salt;
         return $"v1$pbkdf2-sha256${Iterations.ToString(CultureInfo.InvariantCulture)}${Convert.ToBase64String(hash)}";
@@ -40,10 +35,7 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher<UserModel>
     /// <summary>
     /// Проверяет пароль по сохранённым хешу и соли.
     /// </summary>
-    public PasswordVerificationResult VerifyHashedPassword(
-        UserModel user,
-        string hashedPassword,
-        string providedPassword)
+    public PasswordVerificationResult VerifyHashedPassword( UserModel user, string hashedPassword, string providedPassword)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(hashedPassword);
@@ -80,12 +72,7 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher<UserModel>
             return PasswordVerificationResult.Failed;
         }
 
-        var actualHash = Rfc2898DeriveBytes.Pbkdf2(
-            providedPassword,
-            user.PasswordSalt,
-            iterations,
-            HashAlgorithmName.SHA256,
-            HashSize);
+        var actualHash = Rfc2898DeriveBytes.Pbkdf2( providedPassword, user.PasswordSalt, iterations, HashAlgorithmName.SHA256, HashSize);
 
         if (!CryptographicOperations.FixedTimeEquals(actualHash, expectedHash))
         {
