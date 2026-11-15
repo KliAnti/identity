@@ -19,15 +19,15 @@ public static class IdentityPersistenceExtensions
     /// <param name="configuration">Конфигурация приложения.</param>
     /// <returns>Коллекция сервисов для последовательной настройки.</returns>
     /// <exception cref="InvalidOperationException">
-    /// Возникает, если строка подключения «Identity» не задана.
+    /// Возникает, если строка подключения «IdentityDb» не задана.
     /// </exception>
     public static IServiceCollection AddIdentityPersistence(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Identity")
+        var connectionString = configuration.GetConnectionString("IdentityDb")
             ?? throw new InvalidOperationException(
-                "Не задана строка подключения 'ConnectionStrings:Identity'.");
+            "Не задана строка подключения 'ConnectionStrings:IdentityDb'.");
 
         services.AddDbContext<IdentityDbContext>(options => options.UseNpgsql(connectionString));
         services.AddIdentityCore<UserModel>(options => options.User.RequireUniqueEmail = true)
