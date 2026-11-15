@@ -1,11 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY identity.csproj ./
-RUN dotnet restore identity.csproj
+COPY identity/identity.csproj identity/
+RUN dotnet restore identity/identity.csproj
 
-COPY . ./
-RUN dotnet publish identity.csproj --configuration Release --output /app/publish --no-restore
+COPY identity/ identity/
+RUN dotnet publish identity/identity.csproj --configuration Release --output /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
