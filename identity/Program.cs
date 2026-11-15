@@ -4,6 +4,7 @@ using Identity.Grpc;
 using Identity.Infrastructure.Persistence;
 using Identity.Services;
 using Identity.Features.Authentication;
+using Identity.Features.Authentication.Registration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +46,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
+app.MapRegistrationEndpoint();
 app.MapPasswordTokenEndpoint();
 
 app.Run();

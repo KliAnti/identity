@@ -68,7 +68,7 @@ public static class IdentityOpenIddictExtensions
                 var aspNetCoreOptions = options.UseAspNetCore()
                     .EnableTokenEndpointPassthrough();
 
-                if (environment.IsDevelopment())
+                if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
                 {
                     aspNetCoreOptions.DisableTransportSecurityRequirement();
                 }
