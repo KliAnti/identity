@@ -22,7 +22,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.DeviceModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.Device.DeviceModel", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -55,7 +55,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.ToTable("Devices", (string)null);
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.RoleModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.Role.RoleModel", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -77,9 +77,23 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Roles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("d1813e6f-c38a-43df-8728-bc345ab88f01"),
+                            Name = "user",
+                            NormalizedName = "USER"
+                        },
+                        new
+                        {
+                            Id = new Guid("72c97b31-a2c5-4486-aee7-4115d650e102"),
+                            Name = "admin",
+                            NormalizedName = "ADMIN"
+                        });
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.SessionModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.Session.SessionModel", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -106,7 +120,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.ToTable("Sessions", (string)null);
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.UserModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.User.UserModel", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -139,7 +153,7 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.UserRoleModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.UserRole.UserRoleModel", b =>
                 {
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -362,33 +376,33 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.ToTable("OpenIddictTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.DeviceModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.Device.DeviceModel", b =>
                 {
-                    b.HasOne("Identity.Infrastructure.Persistence.Models.UserModel", null)
+                    b.HasOne("Identity.Infrastructure.Persistence.Models.User.UserModel", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.SessionModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.Session.SessionModel", b =>
                 {
-                    b.HasOne("Identity.Infrastructure.Persistence.Models.DeviceModel", null)
+                    b.HasOne("Identity.Infrastructure.Persistence.Models.Device.DeviceModel", null)
                         .WithMany()
                         .HasForeignKey("DeviceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.UserRoleModel", b =>
+            modelBuilder.Entity("Identity.Infrastructure.Persistence.Models.UserRole.UserRoleModel", b =>
                 {
-                    b.HasOne("Identity.Infrastructure.Persistence.Models.RoleModel", null)
+                    b.HasOne("Identity.Infrastructure.Persistence.Models.Role.RoleModel", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Identity.Infrastructure.Persistence.Models.UserModel", null)
+                    b.HasOne("Identity.Infrastructure.Persistence.Models.User.UserModel", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)

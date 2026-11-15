@@ -19,5 +19,18 @@ public sealed class RoleModelConfiguration : IEntityTypeConfiguration<RoleModel>
         builder.Property(role => role.Name).HasMaxLength(256).IsRequired();
         builder.Property(role => role.NormalizedName).HasMaxLength(256).IsRequired();
         builder.HasIndex(role => role.NormalizedName).IsUnique();
+        builder.HasData(
+            new RoleModel
+            {
+                Id = Guid.Parse("d1813e6f-c38a-43df-8728-bc345ab88f01"),
+                Name = "user",
+                NormalizedName = "USER"
+            },
+            new RoleModel
+            {
+                Id = Guid.Parse("72c97b31-a2c5-4486-aee7-4115d650e102"),
+                Name = "admin",
+                NormalizedName = "ADMIN"
+            });
     }
 }

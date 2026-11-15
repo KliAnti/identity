@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence.Models.User;
 
 namespace Identity.Features.Authentication.Registration;
@@ -19,6 +20,7 @@ public static class RegistrationEndpoint
     private static async Task<IResult> RegisterAsync(
         RegistrationRequest request,
         UserManager<UserModel> userManager,
+        IdentityDbContext dbContext,
         CancellationToken cancellationToken)
     {
         var email = request.Email?.Trim();
@@ -54,6 +56,8 @@ public static class RegistrationEndpoint
             EmailConfirmed = true // TODO: Implement email confirmation flow in the future
         };
 
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
         try
         {
             var result = await userManager.CreateAsync(user, request.Password);
@@ -66,6 +70,19 @@ public static class RegistrationEndpoint
                         group => group.Select(error => error.Description).ToArray(),
                         StringComparer.Ordinal));
             }
+
+            var roleResult = await userManager.AddToRoleAsync(user, "user");
+            if (!roleResult.Succeeded)
+            {
+                return Results.ValidationProblem(roleResult.Errors
+                    .GroupBy(error => error.Code, StringComparer.Ordinal)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.Select(error => error.Description).ToArray(),
+                        StringComparer.Ordinal));
+            }
+
+            await transaction.CommitAsync(cancellationToken);
         }
         catch (DbUpdateException exception)
             when (exception.InnerException is PostgresException

@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace Identity.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitOpenIddictSchema : Migration
+    public partial class InitIdentitySchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -208,6 +210,15 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         principalTable: "Devices",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.InsertData(
+                table: "Roles",
+                columns: new[] { "Id", "Name", "NormalizedName" },
+                values: new object[,]
+                {
+                    { new Guid("72c97b31-a2c5-4486-aee7-4115d650e102"), "admin", "ADMIN" },
+                    { new Guid("d1813e6f-c38a-43df-8728-bc345ab88f01"), "user", "USER" }
                 });
 
             migrationBuilder.CreateIndex(
