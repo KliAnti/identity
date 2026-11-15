@@ -3,7 +3,9 @@ using Serilog.Enrichers.Span;
 using Identity.Grpc;
 using Identity.Infrastructure.Persistence;
 using Identity.Services;
+using Identity.Features.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,9 @@ builder.Host.UseSerilog((_, loggerConfiguration) =>
 builder.Services.AddGrpc(options =>
     options.Interceptors.Add<TraceIdInterceptor>());
 builder.Services.AddIdentityPersistence(builder.Configuration);
+builder.Services.AddIdentityOpenIddict(builder.Configuration, builder.Environment);
+builder.Services.AddSingleton<LoginAttemptRateLimiter>();
+builder.Services.AddSingleton<DummyPasswordVerifier>();
 builder.Services.AddGrpcHealthChecks();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IdentityDbContext>("postgresql")
@@ -25,7 +30,13 @@ builder.Services.AddScoped<IdentityService>();
 
 var app = builder.Build();
 
+if (builder.Configuration.GetValue("OpenIddict:InitializeClient", true))
+{
+    await app.Services.InitializeOpenIddictClientAsync();
+}
+
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
+app.MapPasswordTokenEndpoint();
 
 app.Run();

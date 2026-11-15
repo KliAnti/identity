@@ -4,6 +4,7 @@ using Identity.Infrastructure.Persistence.Stores;
 using Identity.Infrastructure.Persistence.Models.Role;
 using Identity.Infrastructure.Persistence.Models.User;
 using Identity.Infrastructure;
+using OpenIddict.EntityFrameworkCore;
 
 namespace Identity.Infrastructure.Persistence;
 
@@ -30,6 +31,11 @@ public static class IdentityPersistenceExtensions
             "Не задана строка подключения 'ConnectionStrings:IdentityDb'.");
 
         services.AddDbContext<IdentityDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddOpenIddict()
+            .AddCore(options => options
+                .UseEntityFrameworkCore()
+                .UseDbContext<IdentityDbContext>()
+                .ReplaceDefaultEntities<Guid>());
         services.AddIdentityCore<UserModel>(options => options.User.RequireUniqueEmail = true)
             .AddRoles<RoleModel>()
             .AddUserStore<IdentityUserStore>()
