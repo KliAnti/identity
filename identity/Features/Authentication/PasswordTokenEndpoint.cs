@@ -28,7 +28,6 @@ public static class PasswordTokenEndpoint
     private static async Task<IResult> HandleAsync(
         HttpContext context,
         UserManager<UserModel> userManager,
-        DummyPasswordVerifier dummyPasswordVerifier,
         IdentityDbContext dbContext,
         IOpenIddictScopeManager scopeManager,
         IOptionsMonitor<OpenIddictServerOptions> openIddictOptions,
@@ -75,16 +74,11 @@ public static class PasswordTokenEndpoint
         var user = await userManager.FindByEmailAsync(email);
         if (user is null)
         {
-            dummyPasswordVerifier.Verify(request.Password);
             return InvalidCredentials();
         }
 
         var hasPassword = await userManager.HasPasswordAsync(user);
         var passwordIsValid = hasPassword && await userManager.CheckPasswordAsync(user, request.Password);
-        if (!hasPassword)
-        {
-            dummyPasswordVerifier.Verify(request.Password);
-        }
 
         var emailIsConfirmed = await userManager.IsEmailConfirmedAsync(user);
         if (!passwordIsValid || !emailIsConfirmed)

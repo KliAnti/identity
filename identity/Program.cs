@@ -23,7 +23,6 @@ builder.Services.AddGrpc(options =>
 builder.Services.AddIdentityPersistence(builder.Configuration);
 builder.Services.AddIdentityOpenIddict(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton<LoginAttemptRateLimiter>();
-builder.Services.AddSingleton<DummyPasswordVerifier>();
 builder.Services.AddGrpcHealthChecks();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IdentityDbContext>("postgresql")
