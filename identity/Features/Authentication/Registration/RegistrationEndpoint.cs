@@ -7,10 +7,19 @@ using Identity.Infrastructure.Persistence.Models.User;
 
 namespace Identity.Features.Authentication.Registration;
 
+/// <summary>
+/// Подключает публичный endpoint создания пользовательской учётной записи.
+/// </summary>
 public static class RegistrationEndpoint
 {
     private static readonly EmailAddressAttribute EmailAddressValidator = new();
 
+    /// <summary>
+    /// Регистрирует POST-маршрут <c>/register</c> для создания аккаунта.
+    /// </summary>
+    /// <param name="endpoints">Маршрутизатор ASP.NET Core, к которому добавляется endpoint.</param>
+    /// <returns>Тот же маршрутизатор для продолжения настройки.</returns>
+    /// <remarks>Текущая реализация считает email подтверждённым сразу; отправка письма ещё не реализована.</remarks>
     public static IEndpointRouteBuilder MapRegistrationEndpoint(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/register", RegisterAsync);
@@ -24,9 +33,7 @@ public static class RegistrationEndpoint
         CancellationToken cancellationToken)
     {
         var email = request.Email?.Trim();
-        if (string.IsNullOrWhiteSpace(email)
-            || email.Length > 256
-            || !EmailAddressValidator.IsValid(email))
+        if (string.IsNullOrWhiteSpace(email) || email.Length > 256 || !EmailAddressValidator.IsValid(email))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {

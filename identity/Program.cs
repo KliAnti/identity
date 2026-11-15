@@ -4,6 +4,7 @@ using Identity.Grpc;
 using Identity.Infrastructure.Persistence;
 using Identity.Services;
 using Identity.Features.Authentication;
+using Identity.Features.Authentication.LoginAttemptRateLimiting;
 using Identity.Features.Authentication.Registration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
