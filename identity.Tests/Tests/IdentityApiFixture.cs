@@ -37,8 +37,9 @@ public sealed class IdentityApiFixture : WebApplicationFactory<IdentityService>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
         builder.UseSetting(
-            "ConnectionStrings:Identity",
+            "ConnectionStrings:IdentityDb",
             "Host=localhost;Database=identity_tests;Username=identity;Password=not-used");
     }
 

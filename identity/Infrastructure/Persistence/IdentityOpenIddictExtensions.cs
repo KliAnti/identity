@@ -34,7 +34,9 @@ public static class IdentityOpenIddictExtensions
                 .TrimEnd('\r', '\n');
         }
 
-        if (string.IsNullOrWhiteSpace(signingCertificatePath) && !environment.IsDevelopment())
+        if (string.IsNullOrWhiteSpace(signingCertificatePath)
+            && !environment.IsDevelopment()
+            && !environment.IsEnvironment("Testing"))
         {
             throw new InvalidOperationException(
                 "OpenIddict signing certificate path must be configured outside Development.");

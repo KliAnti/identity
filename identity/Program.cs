@@ -31,15 +31,16 @@ builder.Services.AddScoped<IdentityService>();
 
 var app = builder.Build();
 
-await using (var scope = app.Services.CreateAsyncScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await dbContext.Database.MigrateAsync();
-}
 
-if (builder.Configuration.GetValue("OpenIddict:InitializeClient", true))
-{
-    await app.Services.InitializeOpenIddictClientAsync();
+    if (builder.Configuration.GetValue("OpenIddict:InitializeClient", true))
+    {
+        await app.Services.InitializeOpenIddictClientAsync();
+    }
 }
 
 app.MapGrpcService<IdentityService>();
