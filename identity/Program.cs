@@ -3,7 +3,12 @@ using Serilog.Enrichers.Span;
 using Identity.Grpc;
 using Identity.Infrastructure.Persistence;
 using Identity.Services;
+using Identity.Features.Authentication;
+using Identity.Features.Authentication.LoginAttemptRateLimiting;
+using Identity.Features.Authentication.Registration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +22,8 @@ builder.Host.UseSerilog((_, loggerConfiguration) =>
 builder.Services.AddGrpc(options =>
     options.Interceptors.Add<TraceIdInterceptor>());
 builder.Services.AddIdentityPersistence(builder.Configuration);
+builder.Services.AddIdentityOpenIddict(builder.Configuration, builder.Environment);
+builder.Services.AddSingleton<LoginAttemptRateLimiter>();
 builder.Services.AddGrpcHealthChecks();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IdentityDbContext>("postgresql")
@@ -25,7 +32,21 @@ builder.Services.AddScoped<IdentityService>();
 
 var app = builder.Build();
 
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    await dbContext.Database.MigrateAsync();
+
+    if (builder.Configuration.GetValue("OpenIddict:InitializeClient", true))
+    {
+        await app.Services.InitializeOpenIddictClientAsync();
+    }
+}
+
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
+app.MapRegistrationEndpoint();
+app.MapPasswordTokenEndpoint();
 
 app.Run();

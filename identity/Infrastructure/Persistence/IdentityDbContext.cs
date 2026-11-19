@@ -1,43 +1,53 @@
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Identity.Infrastructure.Persistence.Models.Device;
+using Identity.Infrastructure.Persistence.Models.Role;
+using Identity.Infrastructure.Persistence.Models.Session;
+using Identity.Infrastructure.Persistence.Models.User;
+using Identity.Infrastructure.Persistence.Models.UserRole;
 
 namespace Identity.Infrastructure.Persistence;
 
 /// <summary>
-/// Контекст хранения пользователей, ролей и связанных данных ASP.NET Core Identity.
+/// Контекст пользовательской схемы и стандартных сущностей OpenIddict.
 /// </summary>
-/// <param name="options">Настройки контекста базы данных.</param>
+/// <param name="options">Параметры подключения и конфигурации EF Core.</param>
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options)
-    : IdentityDbContext<IdentityUserEntity, IdentityRole, string>(options)
+    : DbContext(options)
 {
     /// <summary>
-    /// Настраивает модель Identity и ограничения, обеспечиваемые PostgreSQL.
+    /// Получает набор пользовательских учётных записей.
     /// </summary>
-    /// <param name="builder">Построитель модели Entity Framework Core.</param>
+    public DbSet<UserModel> Users => Set<UserModel>();
+
+    /// <summary>
+    /// Получает набор глобальных ролей.
+    /// </summary>
+    public DbSet<RoleModel> Roles => Set<RoleModel>();
+
+    /// <summary>
+    /// Получает набор назначений ролей пользователям.
+    /// </summary>
+    public DbSet<UserRoleModel> UserRoles => Set<UserRoleModel>();
+
+    /// <summary>
+    /// Получает набор зарегистрированных устройств.
+    /// </summary>
+    public DbSet<DeviceModel> Devices => Set<DeviceModel>();
+
+    /// <summary>
+    /// Получает набор пользовательских сессий.
+    /// </summary>
+    public DbSet<SessionModel> Sessions => Set<SessionModel>();
+
+    /// <summary>
+    /// Настраивает таблицы, ключи, связи и индексы модели данных.
+    /// </summary>
+    /// <param name="builder">Построитель модели EF Core.</param>
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
-        builder.Entity<IdentityUserEntity>()
-            .HasIndex(user => user.NormalizedEmail)
-            .IsUnique()
-            .HasDatabaseName("EmailIndex");
-
-        builder.Entity<IdentityRole>().HasData(
-            new IdentityRole
-            {
-                Id = "system-role-user",
-                Name = "user",
-                NormalizedName = "USER",
-                ConcurrencyStamp = "0b4156cb-800e-4b79-a3a6-c155fe63e8a4"
-            },
-            new IdentityRole
-            {
-                Id = "system-role-admin",
-                Name = "admin",
-                NormalizedName = "ADMIN",
-                ConcurrencyStamp = "41541f97-6707-49d5-893e-48f82901c11c"
-            });
+        builder.UseOpenIddict<Guid>();
+        builder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
     }
 }
