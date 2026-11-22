@@ -16,6 +16,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout shared test framework
+        uses: actions/checkout@v4
+        with:
+          repository: KliAnti/test-framework
+          path: test-framework
+          ref: testframework-postgres-v0.0.1
+
+      - name: Link shared test framework
+        run: ln -s "$GITHUB_WORKSPACE/test-framework" "$GITHUB_WORKSPACE/../test-framework"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
