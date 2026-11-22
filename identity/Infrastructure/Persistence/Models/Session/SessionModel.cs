@@ -29,4 +29,14 @@ public sealed class SessionModel
     /// Получает или задаёт время отзыва сессии.
     /// </summary>
     public DateTimeOffset? RevokedAt { get; set; }
+
+    /// <summary>
+    /// Получает или задаёт идентификатор текущего refresh-токена сессии.
+    /// </summary>
+    public Guid RefreshTokenId { get; set; }
+
+    /// <summary>
+    /// Получает или задаёт идентификатор permanent authorization в OpenIddict.
+    /// </summary>
+    public Guid AuthorizationId { get; set; }
 }

@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   build-test-migrations:
@@ -20,6 +21,17 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+
+      - name: Authenticate GitHub Packages
+        env:
+          USERNAME: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet nuget update source github \
+            --source "https://nuget.pkg.github.com/KliAnti/index.json" \
+            --username "$USERNAME" \
+            --password "$TOKEN" \
+            --store-password-in-clear-text
 
       - name: Restore
         run: dotnet restore identity.slnx

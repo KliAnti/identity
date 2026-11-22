@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 
 namespace Identity.Infrastructure.Persistence;
 
@@ -61,10 +62,19 @@ public static class IdentityOpenIddictExtensions
                 options.SetIssuer(issuer)
                     .SetTokenEndpointUris("/connect/token")
                     .AllowPasswordFlow()
-                    .RegisterScopes(IdentityOpenIddictDefaults.ApiScope)
+                    .AllowRefreshTokenFlow()
+                    .RegisterScopes(IdentityOpenIddictDefaults.ApiScope, "offline_access")
                     .SetAccessTokenLifetime(TimeSpan.FromMinutes(10))
+                    .SetRefreshTokenLifetime(TimeSpan.FromDays(30))
+                    .SetRefreshTokenReuseLeeway(TimeSpan.Zero)
+                    .UseReferenceRefreshTokens()
+                    .UseReferenceAccessTokens()
                     .AddEphemeralEncryptionKey()
                     .DisableAccessTokenEncryption();
+
+                options.AddEventHandler<OpenIddict.Server.OpenIddictServerEvents.ProcessAuthenticationContext>(builder => builder
+                    .UseScopedHandler<Identity.Features.Authentication.RefreshTokenReplayHandler>()
+                    .SetOrder(OpenIddictServerHandlers.ValidateRefreshToken.Descriptor.Order - 1));
 
                 if (string.IsNullOrWhiteSpace(signingCertificatePath))
                 {
@@ -86,6 +96,24 @@ public static class IdentityOpenIddictExtensions
                     aspNetCoreOptions.DisableTransportSecurityRequirement();
                 }
             });
+
+        services.AddOpenIddict()
+            .AddValidation(options =>
+            {
+                options.SetIssuer(issuer);
+                options.AddAudiences(IdentityOpenIddictDefaults.ApiAudience);
+                options.UseLocalServer();
+                options.UseAspNetCore();
+            });
+
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = OpenIddict.Validation.AspNetCore.OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = OpenIddict.Validation.AspNetCore.OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+            options.DefaultScheme = OpenIddict.Validation.AspNetCore.OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+        });
+
+        services.AddAuthorization();
 
         return services;
     }
@@ -113,7 +141,9 @@ public static class IdentityOpenIddictExtensions
                 {
                     OpenIddictConstants.Permissions.Endpoints.Token,
                     OpenIddictConstants.Permissions.GrantTypes.Password,
-                    OpenIddictConstants.Permissions.Prefixes.Scope + IdentityOpenIddictDefaults.ApiScope
+                    OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                    OpenIddictConstants.Permissions.Prefixes.Scope + IdentityOpenIddictDefaults.ApiScope,
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "offline_access"
                 }
             });
         }
@@ -125,6 +155,15 @@ public static class IdentityOpenIddictExtensions
             Name = IdentityOpenIddictDefaults.ApiScope,
                 DisplayName = "VA API",
             Resources = { IdentityOpenIddictDefaults.ApiAudience }
+            });
+        }
+
+        if (await scopeManager.FindByNameAsync("offline_access") is null)
+        {
+            await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
+            {
+                Name = "offline_access",
+                DisplayName = "Offline access"
             });
         }
     }
