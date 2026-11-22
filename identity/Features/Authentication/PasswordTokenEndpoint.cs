@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Persistence.Models.Device;
 using Identity.Infrastructure.Persistence.Models.Session;
@@ -41,6 +42,9 @@ public static class PasswordTokenEndpoint
     /// <param name="userManager">Хранилище пользователей для проверки email, пароля и подтверждения адреса.</param>
     /// <param name="dbContext">Контекст для сохранения устройства и сессии, связанной с токеном.</param>
     /// <param name="scopeManager">Хранилище scope, из которого определяется audience токена.</param>
+    /// <param name="authorizationManager">Менеджер авторизаций для привязки сессии.</param>
+    /// <param name="tokenManager">Менеджер токенов для работы с refresh-токенами.</param>
+    /// <param name="sessionRevocation">Служба отзыва сессий.</param>
     /// <param name="openIddictOptions">Настройки OpenIddict, включая срок действия access token.</param>
     /// <param name="rateLimiter">Ограничитель числа попыток входа для нормализованного email.</param>
     /// <param name="cancellationToken">Токен отмены HTTP-запроса, передаваемый операциям базы данных.</param>
@@ -54,22 +58,92 @@ public static class PasswordTokenEndpoint
         UserManager<UserModel> userManager,
         IdentityDbContext dbContext,
         IOpenIddictScopeManager scopeManager,
+        IOpenIddictAuthorizationManager authorizationManager,
+        IOpenIddictTokenManager tokenManager,
+        SessionRevocationService sessionRevocation,
         IOptionsMonitor<OpenIddictServerOptions> openIddictOptions,
         LoginAttemptRateLimiter rateLimiter,
         CancellationToken cancellationToken)
     {
         var request = context.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("The OpenID Connect request could not be retrieved.");
 
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password) || request.Username.Length > 256 || request.Password.Length > 1024)
+        if (request.IsRefreshTokenGrantType())
+        {
+            var submittedRefreshToken = request.RefreshToken;
+
+            var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            if (!result.Succeeded || result.Principal is null)
+                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+
+            var subject = result.Principal.GetClaim(OpenIddictConstants.Claims.Subject);
+            var sid = result.Principal.GetClaim("sid");
+            var deviceClaim = result.Principal.GetClaim("device_id");
+            var refreshTokenClaim = result.Principal.GetClaim("rt_id");
+
+            if (!Guid.TryParse(sid, out var refreshSessionId)
+                || !Guid.TryParse(deviceClaim, out var refreshDeviceId)
+                || !Guid.TryParse(subject, out var refreshUserId)
+                || !Guid.TryParse(refreshTokenClaim, out var refreshTokenId))
+                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+
+            var refreshNow = DateTimeOffset.UtcNow;
+            var refreshLifetime = openIddictOptions.CurrentValue.RefreshTokenLifetime
+                ?? throw new InvalidOperationException("The OpenIddict refresh token lifetime is not configured.");
+            var nextRefreshTokenId = Guid.NewGuid();
+
+            var refreshDevice = await dbContext.Devices
+                .SingleOrDefaultAsync(candidate => candidate.Id == refreshDeviceId
+                    && candidate.UserId == refreshUserId
+                    && candidate.RevokedAt == null, cancellationToken);
+
+            if (refreshDevice is null)
+                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+
+            var rotated = await dbContext.Sessions
+                .Where(candidate => candidate.Id == refreshSessionId
+                    && candidate.DeviceId == refreshDeviceId
+                    && candidate.RevokedAt == null
+                    && candidate.RefreshTokenId == refreshTokenId
+                    && candidate.ExpiresAt > refreshNow)
+                .ExecuteUpdateAsync(candidate => candidate
+                    .SetProperty(session => session.RefreshTokenId, _ => nextRefreshTokenId)
+                    .SetProperty(session => session.ExpiresAt, _ => refreshNow.Add(refreshLifetime)), cancellationToken);
+
+            if (rotated != 1)
+            {
+                await sessionRevocation.RevokeSessionAsync(refreshSessionId, subject ?? string.Empty, cancellationToken);
+                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+            }
+
+            refreshDevice.LastSeenAt = refreshNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            var refreshPrincipal = result.Principal;
+            refreshPrincipal.SetScopes(request.GetScopes());
+            refreshPrincipal.SetClaim("rt_id", nextRefreshTokenId.ToString());
+            refreshPrincipal.SetExpirationDate(refreshNow.Add(openIddictOptions.CurrentValue.AccessTokenLifetime
+                ?? throw new InvalidOperationException("The OpenIddict access token lifetime is not configured.")));
+
+            return Results.SignIn(
+                refreshPrincipal,
+                authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        }
+
+        if (request.IsPasswordGrantType()
+            && (string.IsNullOrWhiteSpace(request.Username)
+                || string.IsNullOrEmpty(request.Password)
+                || request.Username.Length > 256
+                || request.Password.Length > 1024))
             return Forbid(OpenIddictConstants.Errors.InvalidRequest, "The login request is invalid.");
 
-        if (!request.GetScopes().Contains(IdentityOpenIddictDefaults.ApiScope, StringComparer.Ordinal))
+        if (request.IsPasswordGrantType()
+            && !request.GetScopes().Contains(IdentityOpenIddictDefaults.ApiScope, StringComparer.Ordinal))
             return Forbid(OpenIddictConstants.Errors.InvalidScope, "The requested scope is not allowed.");
 
         if (!Guid.TryParse(request.GetParameter("device_id").ToString(), out var deviceId))
             return Forbid(OpenIddictConstants.Errors.InvalidRequest, "A valid device_id is required.");
 
-        var email = request.Username.Trim();
+        var email = request.Username!.Trim();
         var normalizedEmail = userManager.NormalizeEmail(email) ?? email.ToUpperInvariant();
         var rateLimit = rateLimiter.TryAcquire(normalizedEmail);
         if (!rateLimit.IsAllowed)
@@ -89,8 +163,9 @@ public static class PasswordTokenEndpoint
         if (user is null)
             return InvalidCredentials();
 
+        var password = request.Password!;
         var hasPassword = await userManager.HasPasswordAsync(user);
-        var passwordIsValid = hasPassword && await userManager.CheckPasswordAsync(user, request.Password);
+        var passwordIsValid = hasPassword && await userManager.CheckPasswordAsync(user, password);
 
         var emailIsConfirmed = await userManager.IsEmailConfirmedAsync(user);
         if (!passwordIsValid || !emailIsConfirmed)
@@ -122,15 +197,37 @@ public static class PasswordTokenEndpoint
             device.LastSeenAt = now;
         }
 
+        var loginRefreshTokenId = Guid.NewGuid();
         var session = new SessionModel
         {
             Id = Guid.NewGuid(),
             DeviceId = device.Id,
             CreatedAt = now,
-            ExpiresAt = now.Add(openIddictOptions.CurrentValue.AccessTokenLifetime
-                ?? throw new InvalidOperationException("The OpenIddict access token lifetime is not configured."))
+            ExpiresAt = now.Add(openIddictOptions.CurrentValue.RefreshTokenLifetime
+                ?? throw new InvalidOperationException("The OpenIddict refresh token lifetime is not configured.")),
+            RefreshTokenId = loginRefreshTokenId
         };
         dbContext.Sessions.Add(session);
+
+        var authorization = await authorizationManager.CreateAsync(
+            new OpenIddictAuthorizationDescriptor
+            {
+                Subject = user.Id.ToString(),
+                Status = OpenIddictConstants.Statuses.Valid,
+                Type = OpenIddictConstants.AuthorizationTypes.Permanent,
+                Scopes = { IdentityOpenIddictDefaults.ApiScope, "offline_access" },
+                Properties =
+                {
+                    ["sid"] = JsonSerializer.SerializeToElement(session.Id.ToString()),
+                    ["device_id"] = JsonSerializer.SerializeToElement(device.Id.ToString())
+                }
+            },
+            cancellationToken);
+
+        var authorizationId = await authorizationManager.GetIdAsync(authorization, cancellationToken);
+        if (Guid.TryParse(authorizationId, out var parsedAuthorizationId))
+            session.AuthorizationId = parsedAuthorizationId;
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var identity = new ClaimsIdentity(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme, OpenIddictConstants.Claims.Name, OpenIddictConstants.Claims.Role);
@@ -138,6 +235,7 @@ public static class PasswordTokenEndpoint
         identity.AddClaim(new Claim(OpenIddictConstants.Claims.JwtId, Guid.NewGuid().ToString("N")));
         identity.AddClaim(new Claim("sid", session.Id.ToString()));
         identity.AddClaim(new Claim("device_id", device.Id.ToString()));
+        identity.AddClaim(new Claim("rt_id", loginRefreshTokenId.ToString()));
 
         foreach (var role in roles)
         {
@@ -145,8 +243,9 @@ public static class PasswordTokenEndpoint
         }
 
         var principal = new ClaimsPrincipal(identity);
+        principal.SetAuthorizationId(await authorizationManager.GetIdAsync(authorization, cancellationToken));
         principal.SetExpirationDate(session.ExpiresAt);
-        principal.SetScopes(request.GetScopes());
+        principal.SetScopes(request.GetScopes().Append("offline_access"));
 
         var resources = new List<string>();
         await foreach (var resource in scopeManager.ListResourcesAsync(principal.GetScopes(), cancellationToken))
@@ -160,6 +259,7 @@ public static class PasswordTokenEndpoint
                 OpenIddictConstants.Claims.JwtId or
                 "sid" or
                 "device_id" or
+                "rt_id" or
                 OpenIddictConstants.Claims.Role
                 ? [OpenIddictConstants.Destinations.AccessToken]
                 : []);

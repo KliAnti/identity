@@ -1,67 +1,106 @@
-using Grpc.Net.Client;
+using Identity.Infrastructure.Persistence;
 using Identity.Services;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using TestFramework.Fixtures;
+using TestFramework.Http;
+using TestFramework.Postgres;
 using Xunit;
-using IdentityGrpcClient = global::Identity.Grpc.Identity.IdentityClient;
 
 namespace Identity.Tests.Tests;
 
 /// <summary>
-/// Запускает Identity в памяти и предоставляет gRPC-клиент для API-тестов.
+/// Поднимает Identity в памяти с реальной PostgreSQL-базой для HTTP integration-тестов.
 /// </summary>
-public sealed class IdentityApiFixture : WebApplicationFactory<IdentityService>
+public sealed class IdentityApiFixture : MockFixtureBase<IdentityService>
 {
-    /// <summary>
-    /// Базовый адрес тестового хоста Identity.
-    /// </summary>
-    public const string BaseAddress = "http://localhost";
+    private readonly PostgresContainerFixture _postgres = new();
+    private DatabaseResetter? _databaseResetter;
 
-    private readonly GrpcChannel _channel;
+    /// <summary>Создаёт API-клиент с TestServer Identity.</summary>
+    public ApiClient CreateIdentityApiClient() => CreateApiClient();
 
-    /// <summary>
-    /// Создаёт тестовый хост Identity в памяти и инициализирует gRPC-клиент.
-    /// </summary>
-    public IdentityApiFixture()
+    /// <inheritdoc />
+    protected override void ConfigureMocks(IServiceCollection services)
     {
-        _channel = GrpcChannel.ForAddress(
-            BaseAddress,
-            new GrpcChannelOptions { HttpHandler = Server.CreateHandler() });
-        Client = new IdentityGrpcClient(_channel);
+        services.RemoveAll<DbContextOptions<IdentityDbContext>>();
+        services.RemoveAll<IdentityDbContext>();
+        services.AddDbContext<IdentityDbContext>(options =>
+            options.UseNpgsql(_postgres.ConnectionString));
     }
 
-    /// <summary>
-    /// gRPC-клиент Identity, используемый в API-тестах.
-    /// </summary>
-    public IdentityGrpcClient Client { get; }
-
+    /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.UseSetting(
-            "ConnectionStrings:IdentityDb",
-            "Host=localhost;Database=identity_tests;Username=identity;Password=not-used");
+        builder.UseSetting("ConnectionStrings:IdentityDb", _postgres.ConnectionString);
+
+        base.ConfigureWebHost(builder);
     }
 
-    protected override void Dispose(bool disposing)
+    /// <inheritdoc />
+    public override async Task InitializeAsync()
     {
-        if (disposing)
-        {
-            _channel.Dispose();
-        }
+        await _postgres.InitializeAsync();
 
-        base.Dispose(disposing);
+        var options = new DbContextOptionsBuilder<IdentityDbContext>()
+            .UseNpgsql(_postgres.ConnectionString)
+            .Options;
+
+        await using var dbContext = new IdentityDbContext(options);
+        await dbContext.Database.MigrateAsync();
+
+        _databaseResetter = new DatabaseResetter(_postgres.ConnectionString);
+        await _databaseResetter.InitializeAsync();
+
+        await Services.InitializeOpenIddictClientAsync();
+    }
+
+    /// <inheritdoc />
+    public override async Task ResetAsync()
+    {
+        await base.ResetAsync();
+
+        if (_databaseResetter is null)
+            throw new InvalidOperationException("PostgreSQL resetter не инициализирован.");
+
+        await _databaseResetter.ResetAsync();
+
+        await using var dbContext = new IdentityDbContext(
+            new DbContextOptionsBuilder<IdentityDbContext>()
+                .UseNpgsql(_postgres.ConnectionString)
+                .Options);
+
+        await dbContext.Roles.AddRangeAsync(
+            new Identity.Infrastructure.Persistence.Models.Role.RoleModel
+            {
+                Id = Guid.Parse("72c97b31-a2c5-4486-aee7-4115d650e102"),
+                Name = "admin",
+                NormalizedName = "ADMIN"
+            },
+            new Identity.Infrastructure.Persistence.Models.Role.RoleModel
+            {
+                Id = Guid.Parse("d1813e6f-c38a-43df-8728-bc345ab88f01"),
+                Name = "user",
+                NormalizedName = "USER"
+            });
+
+        await dbContext.SaveChangesAsync();
+        await Services.InitializeOpenIddictClientAsync();
+    }
+
+    /// <inheritdoc />
+    protected override async Task DisposeAsyncCore()
+    {
+        await _postgres.DisposeAsync();
     }
 }
 
-/// <summary>
-/// Определяет xUnit-коллекцию тестов Identity API с общей фикстурой.
-/// </summary>
+/// <summary>Объединяет Identity HTTP integration-тесты в общую fixture.</summary>
 [CollectionDefinition(Name)]
 public sealed class IdentityApiCollection : ICollectionFixture<IdentityApiFixture>
 {
-    /// <summary>
-    /// Имя xUnit-коллекции для тестов Identity API.
-    /// </summary>
     public const string Name = "Identity API";
 }

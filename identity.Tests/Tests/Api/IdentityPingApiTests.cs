@@ -10,6 +10,9 @@ namespace Identity.Tests.Tests.Api;
 [Collection(IdentityApiCollection.Name)]
 public sealed class IdentityPingApiTests(IdentityApiFixture fixture)
 {
+    private readonly global::Identity.Grpc.Identity.IdentityClient _client = fixture.CreateGrpcClient(
+        channel => new global::Identity.Grpc.Identity.IdentityClient(channel));
+
     [Fact]
     public async Task Ping_WhenMessageIsValid_ReturnsPong()
     {
@@ -17,7 +20,7 @@ public sealed class IdentityPingApiTests(IdentityApiFixture fixture)
         var request = new PingRequest { Message = "Ping" };
 
         // Act
-        var response = await fixture.Client.PingAsync(request);
+        var response = await _client.PingAsync(request);
 
         // Assert
         response.Message.Should().Be("Pong");
@@ -30,7 +33,7 @@ public sealed class IdentityPingApiTests(IdentityApiFixture fixture)
         var request = new PingRequest { Message = "32132132132132" };
 
         // Act
-        var response = await fixture.Client.PingAsync(request);
+        var response = await _client.PingAsync(request);
 
         // Assert
         response.Message.Should().Be( "Pong" );

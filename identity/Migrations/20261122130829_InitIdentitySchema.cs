@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace Identity.Infrastructure.Persistence.Migrations
+namespace Identity.Migrations
 {
     /// <inheritdoc />
     public partial class InitIdentitySchema : Migration
@@ -199,7 +199,8 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     DeviceId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    RefreshTokenId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {

@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\identity\identity.csproj" />
+    <ProjectReference Include="..\..\test-framework\src\TestFramework\TestFramework.csproj" />
+    <ProjectReference Include="..\..\test-framework\src\TestFramework.Postgres\TestFramework.Postgres.csproj" />
   </ItemGroup>
 
 </Project>

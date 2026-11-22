@@ -9,6 +9,7 @@ using Identity.Features.Authentication.Registration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,8 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<IdentityDbContext>("postgresql")
     .AddCheck("identity", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 builder.Services.AddScoped<IdentityService>();
+builder.Services.AddScoped<SessionRevocationService>();
+builder.Services.AddScoped<RefreshTokenReplayHandler>();
 
 var app = builder.Build();
 
@@ -44,9 +47,13 @@ if (!app.Environment.IsEnvironment("Testing"))
     }
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
 app.MapRegistrationEndpoint();
 app.MapPasswordTokenEndpoint();
+app.MapLogoutEndpoints();
 
 app.Run();
