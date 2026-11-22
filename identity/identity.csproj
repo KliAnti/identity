@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="identity.proto" GrpcServices="Both" />
+    <PackageReference Include="Contracts.Identity" Version="0.1.4" />
   </ItemGroup>
 
   <ItemGroup>

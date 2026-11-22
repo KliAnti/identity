@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Identity.Grpc;
+using identity.Grpc;
 using Xunit;
 
 namespace Identity.Tests.Tests.Api;
@@ -10,8 +10,8 @@ namespace Identity.Tests.Tests.Api;
 [Collection(IdentityApiCollection.Name)]
 public sealed class IdentityPingApiTests(IdentityApiFixture fixture)
 {
-    private readonly global::Identity.Grpc.Identity.IdentityClient _client = fixture.CreateGrpcClient(
-        channel => new global::Identity.Grpc.Identity.IdentityClient(channel));
+    private readonly global::identity.Grpc.Identity.IdentityClient _client = fixture.CreateGrpcClient(
+        channel => new global::identity.Grpc.Identity.IdentityClient(channel));
 
     [Fact]
     public async Task Ping_WhenMessageIsValid_ReturnsPong()

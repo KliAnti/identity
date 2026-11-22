@@ -1,11 +1,10 @@
 using Serilog;
 using Serilog.Enrichers.Span;
-using Identity.Grpc;
+using identity.Grpc;
 using Identity.Infrastructure.Persistence;
 using Identity.Services;
 using Identity.Features.Authentication;
 using Identity.Features.Authentication.LoginAttemptRateLimiting;
-using Identity.Features.Authentication.Registration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
@@ -52,8 +51,6 @@ app.UseAuthorization();
 
 app.MapGrpcService<IdentityService>();
 app.MapGrpcHealthChecksService();
-app.MapRegistrationEndpoint();
 app.MapPasswordTokenEndpoint();
-app.MapLogoutEndpoints();
 
 app.Run();

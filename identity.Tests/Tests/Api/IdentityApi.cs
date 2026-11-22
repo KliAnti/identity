@@ -1,4 +1,5 @@
-using System.Net.Http.Headers;
+using Grpc.Core;
+using identity.Grpc;
 using Identity.Tests.Tests.Routes;
 using TestFramework.Http;
 
@@ -8,15 +9,17 @@ namespace Identity.Tests.Tests.Api;
 public sealed class IdentityApi
 {
     private readonly ApiClient _client;
+    private readonly global::identity.Grpc.Identity.IdentityClient _grpcClient;
 
-    public IdentityApi(ApiClient client)
+    public IdentityApi(ApiClient client, global::identity.Grpc.Identity.IdentityClient grpcClient)
     {
         _client = client;
+        _grpcClient = grpcClient;
     }
 
-    public Task<HttpResponseMessage> Register(string email, string password)
+    public Task<RegisterResponse> Register(string email, string password)
     {
-        return _client.Post(IdentityRoutes.Register, new { email, password });
+        return _grpcClient.RegisterAsync(new RegisterRequest { Email = email, Password = password }).ResponseAsync;
     }
 
     public Task<HttpResponseMessage> PasswordLogin(string email, string password, Guid deviceId)
@@ -43,18 +46,18 @@ public sealed class IdentityApi
         ]);
     }
 
-    public Task<HttpResponseMessage> Logout(string accessToken)
+    public Task<LogoutResponse> Logout(string accessToken)
     {
-        return PostAuthenticated(IdentityRoutes.Logout, accessToken);
+        return _grpcClient.LogoutAsync(new LogoutRequest(), CreateAuthorizationMetadata(accessToken)).ResponseAsync;
     }
 
-    public Task<HttpResponseMessage> LogoutAll(string accessToken)
+    public Task<LogoutResponse> LogoutAll(string accessToken)
     {
-        return PostAuthenticated(IdentityRoutes.LogoutAll, accessToken);
+        return _grpcClient.LogoutAllAsync(new LogoutRequest(), CreateAuthorizationMetadata(accessToken)).ResponseAsync;
     }
 
-    private Task<HttpResponseMessage> PostAuthenticated(string url, string accessToken)
+    private static Metadata CreateAuthorizationMetadata(string accessToken)
     {
-        return _client.PostFormBearer(url, accessToken, []);
+        return new Metadata { { "Authorization", $"Bearer {accessToken}" } };
     }
 }

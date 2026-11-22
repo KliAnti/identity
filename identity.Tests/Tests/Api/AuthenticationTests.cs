@@ -22,7 +22,9 @@ public sealed class AuthenticationTests : IAsyncLifetime
     public AuthenticationTests(IdentityApiFixture fixture)
     {
         _fixture = fixture;
-        _identityApi = new IdentityApi(fixture.CreateIdentityApiClient());
+        _identityApi = new IdentityApi(
+            fixture.CreateIdentityApiClient(),
+            fixture.CreateGrpcClient(channel => new global::identity.Grpc.Identity.IdentityClient(channel)));
     }
 
     public Task InitializeAsync() => _fixture.ResetAsync();
@@ -101,8 +103,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
         var loginOne = await LoginAsync(deviceOne, email, password);
         var loginTwo = await LoginAsync(deviceTwo, email, password);
 
-        var logout = await _identityApi.Logout(loginOne.AccessToken);
-        logout.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await _identityApi.Logout(loginOne.AccessToken);
 
         await using var scope = _fixture.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
@@ -128,8 +129,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
         var loginOne = await LoginAsync(deviceOne, email, password);
         await LoginAsync(deviceTwo, email, password);
 
-        var logout = await _identityApi.LogoutAll(loginOne.AccessToken);
-        logout.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await _identityApi.LogoutAll(loginOne.AccessToken);
 
         await using var scope = _fixture.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
@@ -200,7 +200,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
         const string password = "Password123!";
 
         var register = await _identityApi.Register(email, password);
-        register.StatusCode.Should().Be(HttpStatusCode.Created);
+        register.UserId.Should().NotBeNullOrWhiteSpace();
 
         var login = await _identityApi.PasswordLogin(email, password, deviceId);
         login.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -228,8 +228,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
 
     private async Task RegisterAsync(string email, string password)
     {
-        var register = await _identityApi.Register(email, password);
-        register.StatusCode.Should().Be(HttpStatusCode.Created);
+        await _identityApi.Register(email, password);
     }
 
     private sealed record LoginResult(

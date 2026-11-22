@@ -68,67 +68,93 @@ public static class PasswordTokenEndpoint
         var request = context.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("The OpenID Connect request could not be retrieved.");
 
         if (request.IsRefreshTokenGrantType())
+            return await HandleRefreshTokenGrantAsync(
+                context, request, dbContext, sessionRevocation, openIddictOptions, cancellationToken);
+
+        return await HandlePasswordGrantAsync(
+            context, request, userManager, dbContext, scopeManager, authorizationManager, openIddictOptions,
+            rateLimiter, cancellationToken);
+    }
+
+    private static async Task<IResult> HandleRefreshTokenGrantAsync(
+        HttpContext context,
+        OpenIddictRequest request,
+        IdentityDbContext dbContext,
+        SessionRevocationService sessionRevocation,
+        IOptionsMonitor<OpenIddictServerOptions> openIddictOptions,
+        CancellationToken cancellationToken)
+    {
+        var submittedRefreshToken = request.RefreshToken;
+
+        var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        if (!result.Succeeded || result.Principal is null)
+            return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+
+        var subject = result.Principal.GetClaim(OpenIddictConstants.Claims.Subject);
+        var sid = result.Principal.GetClaim("sid");
+        var deviceClaim = result.Principal.GetClaim("device_id");
+        var refreshTokenClaim = result.Principal.GetClaim("rt_id");
+
+        if (!Guid.TryParse(sid, out var refreshSessionId)
+            || !Guid.TryParse(deviceClaim, out var refreshDeviceId)
+            || !Guid.TryParse(subject, out var refreshUserId)
+            || !Guid.TryParse(refreshTokenClaim, out var refreshTokenId))
+            return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+
+        var refreshNow = DateTimeOffset.UtcNow;
+        var refreshLifetime = openIddictOptions.CurrentValue.RefreshTokenLifetime
+            ?? throw new InvalidOperationException("The OpenIddict refresh token lifetime is not configured.");
+        var nextRefreshTokenId = Guid.NewGuid();
+
+        var refreshDevice = await dbContext.Devices
+            .SingleOrDefaultAsync(candidate => candidate.Id == refreshDeviceId
+                && candidate.UserId == refreshUserId
+                && candidate.RevokedAt == null, cancellationToken);
+
+        if (refreshDevice is null)
+            return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
+
+        var rotated = await dbContext.Sessions
+            .Where(candidate => candidate.Id == refreshSessionId
+                && candidate.DeviceId == refreshDeviceId
+                && candidate.RevokedAt == null
+                && candidate.RefreshTokenId == refreshTokenId
+                && candidate.ExpiresAt > refreshNow)
+            .ExecuteUpdateAsync(candidate => candidate
+                .SetProperty(session => session.RefreshTokenId, _ => nextRefreshTokenId)
+                .SetProperty(session => session.ExpiresAt, _ => refreshNow.Add(refreshLifetime)), cancellationToken);
+
+        if (rotated != 1)
         {
-            var submittedRefreshToken = request.RefreshToken;
-
-            var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-            if (!result.Succeeded || result.Principal is null)
-                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
-
-            var subject = result.Principal.GetClaim(OpenIddictConstants.Claims.Subject);
-            var sid = result.Principal.GetClaim("sid");
-            var deviceClaim = result.Principal.GetClaim("device_id");
-            var refreshTokenClaim = result.Principal.GetClaim("rt_id");
-
-            if (!Guid.TryParse(sid, out var refreshSessionId)
-                || !Guid.TryParse(deviceClaim, out var refreshDeviceId)
-                || !Guid.TryParse(subject, out var refreshUserId)
-                || !Guid.TryParse(refreshTokenClaim, out var refreshTokenId))
-                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
-
-            var refreshNow = DateTimeOffset.UtcNow;
-            var refreshLifetime = openIddictOptions.CurrentValue.RefreshTokenLifetime
-                ?? throw new InvalidOperationException("The OpenIddict refresh token lifetime is not configured.");
-            var nextRefreshTokenId = Guid.NewGuid();
-
-            var refreshDevice = await dbContext.Devices
-                .SingleOrDefaultAsync(candidate => candidate.Id == refreshDeviceId
-                    && candidate.UserId == refreshUserId
-                    && candidate.RevokedAt == null, cancellationToken);
-
-            if (refreshDevice is null)
-                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
-
-            var rotated = await dbContext.Sessions
-                .Where(candidate => candidate.Id == refreshSessionId
-                    && candidate.DeviceId == refreshDeviceId
-                    && candidate.RevokedAt == null
-                    && candidate.RefreshTokenId == refreshTokenId
-                    && candidate.ExpiresAt > refreshNow)
-                .ExecuteUpdateAsync(candidate => candidate
-                    .SetProperty(session => session.RefreshTokenId, _ => nextRefreshTokenId)
-                    .SetProperty(session => session.ExpiresAt, _ => refreshNow.Add(refreshLifetime)), cancellationToken);
-
-            if (rotated != 1)
-            {
-                await sessionRevocation.RevokeSessionAsync(refreshSessionId, subject ?? string.Empty, cancellationToken);
-                return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
-            }
-
-            refreshDevice.LastSeenAt = refreshNow;
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            var refreshPrincipal = result.Principal;
-            refreshPrincipal.SetScopes(request.GetScopes());
-            refreshPrincipal.SetClaim("rt_id", nextRefreshTokenId.ToString());
-            refreshPrincipal.SetExpirationDate(refreshNow.Add(openIddictOptions.CurrentValue.AccessTokenLifetime
-                ?? throw new InvalidOperationException("The OpenIddict access token lifetime is not configured.")));
-
-            return Results.SignIn(
-                refreshPrincipal,
-                authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            await sessionRevocation.RevokeSessionAsync(refreshSessionId, subject ?? string.Empty, cancellationToken);
+            return Forbid(OpenIddictConstants.Errors.InvalidGrant, "The refresh token is invalid or revoked.");
         }
 
+        refreshDevice.LastSeenAt = refreshNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var refreshPrincipal = result.Principal;
+        refreshPrincipal.SetScopes(request.GetScopes());
+        refreshPrincipal.SetClaim("rt_id", nextRefreshTokenId.ToString());
+        refreshPrincipal.SetExpirationDate(refreshNow.Add(openIddictOptions.CurrentValue.AccessTokenLifetime
+            ?? throw new InvalidOperationException("The OpenIddict access token lifetime is not configured.")));
+
+        return Results.SignIn(
+            refreshPrincipal,
+            authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private static async Task<IResult> HandlePasswordGrantAsync(
+        HttpContext context,
+        OpenIddictRequest request,
+        UserManager<UserModel> userManager,
+        IdentityDbContext dbContext,
+        IOpenIddictScopeManager scopeManager,
+        IOpenIddictAuthorizationManager authorizationManager,
+        IOptionsMonitor<OpenIddictServerOptions> openIddictOptions,
+        LoginAttemptRateLimiter rateLimiter,
+        CancellationToken cancellationToken)
+    {
         if (request.IsPasswordGrantType()
             && (string.IsNullOrWhiteSpace(request.Username)
                 || string.IsNullOrEmpty(request.Password)
